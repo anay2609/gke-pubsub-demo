@@ -12,12 +12,6 @@ REPO="demo-repo"
 
 IMAGE_URL="asia-south1-docker.pkg.dev/${PROJECT}/${REPO}"
 
-HOME="/var/lib/jenkins"
-
-PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/google-cloud-sdk/bin"
-
-GOOGLE_APPLICATION_CREDENTIALS="/var/lib/jenkins/gcp/gke-demo-project.json"
-
 }
 
 stages {
@@ -26,11 +20,9 @@ stage('Checkout') {
 
 steps {
 
-git branch: 'main',
-
-url: 'https://github.com/anay2609/gke-pubsub-demo.git',
-
-credentialsId: 'github-token'
+git branch:'main',
+url:'https://github.com/anay2609/gke-pubsub-demo.git',
+credentialsId:'github-token'
 
 }
 
@@ -42,28 +34,23 @@ steps {
 
 sh '''
 
-echo "=== PATH ==="
+export HOME=/var/lib/jenkins
 
-echo $PATH
-
-echo "=== HOME ==="
-
-echo $HOME
+export PATH=$PATH:/opt/google-cloud-sdk/bin
 
 which gcloud
 
 which docker-credential-gcloud
 
+ls -l /var/lib/jenkins/gcp
+
 gcloud auth activate-service-account \
+--key-file=/var/lib/jenkins/gcp/gke-demo-project.json
 
---key-file=$GOOGLE_APPLICATION_CREDENTIALS
-
-gcloud config set project $PROJECT
+gcloud config set project gke-demo-project-497408
 
 gcloud auth configure-docker \
-
 asia-south1-docker.pkg.dev \
-
 --quiet
 
 cat ~/.docker/config.json
@@ -99,16 +86,13 @@ steps {
 sh '''
 
 docker tag frontend \
-
-$IMAGE_URL/frontend:v1
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/frontend:v1
 
 docker tag backend \
-
-$IMAGE_URL/backend:v1
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/backend:v1
 
 docker tag worker \
-
-$IMAGE_URL/worker:v1
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/worker:v1
 
 '''
 
@@ -126,19 +110,14 @@ export HOME=/var/lib/jenkins
 
 export PATH=$PATH:/opt/google-cloud-sdk/bin
 
-which docker-credential-gcloud
+docker push \
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/frontend:v1
 
 docker push \
-
-$IMAGE_URL/frontend:v1
-
-docker push \
-
-$IMAGE_URL/backend:v1
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/backend:v1
 
 docker push \
-
-$IMAGE_URL/worker:v1
+asia-south1-docker.pkg.dev/gke-demo-project-497408/demo-repo/worker:v1
 
 '''
 
@@ -172,9 +151,7 @@ dir('terraform') {
 
 sh '''
 
-terraform apply \
-
--auto-approve
+terraform apply -auto-approve
 
 '''
 
@@ -191,9 +168,7 @@ steps {
 sh '''
 
 gcloud container clusters get-credentials \
-
 gke-demo \
-
 --region asia-south1
 
 '''
@@ -202,7 +177,7 @@ gke-demo \
 
 }
 
-stage('Deploy K8s') {
+stage('Deploy') {
 
 steps {
 
@@ -221,18 +196,6 @@ kubectl get pods
 }
 
 post {
-
-success {
-
-echo "Deployment Successful"
-
-}
-
-failure {
-
-echo "Deployment Failed"
-
-}
 
 always {
 
