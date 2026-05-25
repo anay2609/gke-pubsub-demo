@@ -12,6 +12,10 @@ REPO="demo-repo"
 
 IMAGE_URL="asia-south1-docker.pkg.dev/${PROJECT}/${REPO}"
 
+HOME="/var/lib/jenkins"
+
+PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/opt/google-cloud-sdk/bin"
+
 GOOGLE_APPLICATION_CREDENTIALS="/var/lib/jenkins/gcp/gke-demo-project.json"
 
 }
@@ -22,11 +26,11 @@ stage('Checkout') {
 
 steps {
 
-git branch:'main',
+git branch: 'main',
 
-url:'https://github.com/anay2609/gke-pubsub-demo.git',
+url: 'https://github.com/anay2609/gke-pubsub-demo.git',
 
-credentialsId:'github-token'
+credentialsId: 'github-token'
 
 }
 
@@ -38,13 +42,31 @@ steps {
 
 sh '''
 
+echo "=== PATH ==="
+
+echo $PATH
+
+echo "=== HOME ==="
+
+echo $HOME
+
+which gcloud
+
+which docker-credential-gcloud
+
 gcloud auth activate-service-account \
+
 --key-file=$GOOGLE_APPLICATION_CREDENTIALS
 
 gcloud config set project $PROJECT
 
 gcloud auth configure-docker \
-asia-south1-docker.pkg.dev --quiet
+
+asia-south1-docker.pkg.dev \
+
+--quiet
+
+cat ~/.docker/config.json
 
 '''
 
@@ -77,12 +99,15 @@ steps {
 sh '''
 
 docker tag frontend \
+
 $IMAGE_URL/frontend:v1
 
 docker tag backend \
+
 $IMAGE_URL/backend:v1
 
 docker tag worker \
+
 $IMAGE_URL/worker:v1
 
 '''
@@ -97,11 +122,23 @@ steps {
 
 sh '''
 
-docker push $IMAGE_URL/frontend:v1
+export HOME=/var/lib/jenkins
 
-docker push $IMAGE_URL/backend:v1
+export PATH=$PATH:/opt/google-cloud-sdk/bin
 
-docker push $IMAGE_URL/worker:v1
+which docker-credential-gcloud
+
+docker push \
+
+$IMAGE_URL/frontend:v1
+
+docker push \
+
+$IMAGE_URL/backend:v1
+
+docker push \
+
+$IMAGE_URL/worker:v1
 
 '''
 
@@ -109,7 +146,7 @@ docker push $IMAGE_URL/worker:v1
 
 }
 
-stage('Terraform') {
+stage('Terraform Init') {
 
 steps {
 
@@ -119,7 +156,24 @@ sh '''
 
 terraform init
 
+'''
+
+}
+
+}
+
+}
+
+stage('Terraform Apply') {
+
+steps {
+
+dir('terraform') {
+
+sh '''
+
 terraform apply \
+
 -auto-approve
 
 '''
@@ -137,7 +191,9 @@ steps {
 sh '''
 
 gcloud container clusters get-credentials \
+
 gke-demo \
+
 --region asia-south1
 
 '''
@@ -154,6 +210,8 @@ sh '''
 
 kubectl apply -f k8s/
 
+kubectl get pods
+
 '''
 
 }
@@ -166,13 +224,23 @@ post {
 
 success {
 
-echo "Deployment Completed"
+echo "Deployment Successful"
 
 }
 
 failure {
 
 echo "Deployment Failed"
+
+}
+
+always {
+
+sh '''
+
+docker images
+
+'''
 
 }
 
