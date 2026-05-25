@@ -1,0 +1,11 @@
+{
+
+"name":"worker",
+
+"dependencies":{
+
+"@google-cloud/pubsub":"^4.3.0"
+
+}
+
+}
